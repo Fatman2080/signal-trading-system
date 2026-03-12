@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# 敏感配置（含 API 密钥/私钥）
+config/accounts.yaml
+config/webhook.yaml
+.env
+
+# 运行时数据
+data/
+
+# 旧版独立策略（已集成，仅本地参考）
+PA/
+
+# IDE / 编辑器
+.cursor/
+.idea/
+.vscode/
+*.sublime-*
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+
+# 本地保留的废弃文件
+gui.py
+test_live.py
+src/signals/sources/crypto_test.py

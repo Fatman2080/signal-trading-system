@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>策略信号交易系统</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <!-- ═══ 顶栏 ═══ -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="logo-pulse"></span>
+      <span class="logo-text">策略信号交易系统</span>
+      <span class="logo-ver">v1.0</span>
+    </div>
+    <div class="topbar-center">
+      <span class="sys-time" id="sys-time">00:00:00</span>
+    </div>
+    <div class="topbar-right">
+      <button class="t-btn" id="btn-config" title="配置面板">[ 配置 ]</button>
+      <button class="t-btn green" id="btn-run" title="运行一次">[ 运行 ]</button>
+      <button class="t-btn" id="btn-save" title="保存配置">[ 保存 ]</button>
+      <span class="sched-indicator" id="sched-indicator" title="调度器状态">
+        <span class="sched-dot" id="sched-dot"></span>
+        <span class="sched-label" id="sched-label">调度器: 停止</span>
+      </span>
+    </div>
+  </header>
+
+  <!-- ═══ 主体：左右分栏 ═══ -->
+  <div class="main-split">
+    <!-- 左侧：终端日志 -->
+    <div class="pane pane-log">
+      <div class="pane-head">
+        <span class="pane-title">● 运行日志</span>
+        <span class="pane-hint">tail -f log/agents.log</span>
+        <button class="t-btn-sm" id="btn-clear-log" title="清空">清空</button>
+      </div>
+      <div class="log-scroll" id="log-scroll">
+        <div id="log-area"></div>
+        <div class="cursor-blink" id="log-cursor">█</div>
+      </div>
+    </div>
+
+    <!-- 右侧：仪表盘 -->
+    <div class="pane pane-dash">
+      <div class="pane-head">
+        <span class="pane-title">● 仪表盘</span>
+        <span class="pane-hint" id="dash-status">0 行 · 最近更新: --:--:--</span>
+      </div>
+      <div class="dash-scroll">
+        <!-- 顶部统计行 -->
+        <div class="stat-row">
+          <div class="stat-box">
+            <div class="stat-val green" id="s-accounts">0</div>
+            <div class="stat-key">交易账号</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val cyan" id="s-signals">0</div>
+            <div class="stat-key">信号源</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val yellow" id="s-symbols">0</div>
+            <div class="stat-key">交易标的</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val red" id="s-positions">0</div>
+            <div class="stat-key">持仓数</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" id="s-mode">--</div>
+            <div class="stat-key">运行模式</div>
+          </div>
+        </div>
+
+        <!-- 模块网格 -->
+        <div class="mod-grid">
+          <!-- 风控 -->
+          <div class="mod" id="mod-sentinel">
+            <div class="mod-head">
+              <span class="mod-tag red">风控</span>
+              <span class="mod-label">SENTINEL</span>
+            </div>
+            <div class="mod-body">
+              <div class="kv"><span class="k">单笔最大下单比例</span><span class="v" id="v-max-order">0.1</span></div>
+              <div class="kv"><span class="k">日最大成交笔数</span><span class="v" id="v-max-daily">100</span></div>
+              <div class="kv"><span class="k">试运行模式</span><span class="v" id="v-dryrun">否</span></div>
+              <div class="kv"><span class="k">状态</span><span class="v green" id="v-risk-status">运行中</span></div>
+            </div>
+          </div>
+
+          <!-- 信号源 -->
+          <div class="mod" id="mod-oracle">
+            <div class="mod-head">
+              <span class="mod-tag cyan">信号源</span>
+              <span class="mod-label">ORACLE</span>
+            </div>
+            <div class="mod-body" id="oracle-body">
+              <div class="kv"><span class="k">信号源数量</span><span class="v" id="v-src-count">0</span></div>
+              <div class="kv"><span class="k">最小信号强度</span><span class="v" id="v-min-str">0.3</span></div>
+              <div id="oracle-list" class="sub-list"></div>
+            </div>
+          </div>
+
+          <!-- 策略 -->
+          <div class="mod" id="mod-prophet">
+            <div class="mod-head">
+              <span class="mod-tag yellow">策略</span>
+              <span class="mod-label">PROPHET</span>
+            </div>
+            <div class="mod-body">
+              <div class="kv"><span class="k">下单类型</span><span class="v" id="v-order-type">限价</span></div>
+              <div class="kv"><span class="k">最大仓位占比</span><span class="v" id="v-max-pos">0.2</span></div>
+              <div class="kv"><span class="k">标的数量</span><span class="v" id="v-sym-count">0</span></div>
+              <div id="prophet-symbols" class="sub-list"></div>
+            </div>
+          </div>
+
+          <!-- 执行器 -->
+          <div class="mod" id="mod-ghost">
+            <div class="mod-head">
+              <span class="mod-tag green">执行器</span>
+              <span class="mod-label">GHOST</span>
+            </div>
+            <div class="mod-body" id="ghost-body">
+              <div class="kv"><span class="k">累计订单数</span><span class="v green" id="v-total-orders">0</span></div>
+              <div class="kv"><span class="k">上次运行</span><span class="v" id="v-last-run">--</span></div>
+            </div>
+          </div>
+
+          <!-- 账号分配 -->
+          <div class="mod mod-wide" id="mod-diversifier">
+            <div class="mod-head">
+              <span class="mod-tag magenta">分配器</span>
+              <span class="mod-label">DIVERSIFIER</span>
+            </div>
+            <div class="mod-body" id="diversifier-body">
+              <div class="empty-hint">暂无账号</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 持仓 & 余额 -->
+        <div class="mod mod-wide" id="mod-positions">
+          <div class="mod-head">
+            <span class="mod-tag yellow">持仓</span>
+            <span class="mod-label">POSITIONS</span>
+            <span style="flex:1"></span>
+            <button class="t-btn-sm" id="btn-refresh-pos">刷新</button>
+          </div>
+          <div class="mod-body" id="positions-body">
+            <div class="empty-hint">点击刷新查询持仓</div>
+          </div>
+        </div>
+
+        <!-- Webhook & 调度器 -->
+        <div class="mod mod-wide" id="mod-webhook">
+          <div class="mod-head">
+            <span class="mod-tag cyan">Webhook</span>
+            <span class="mod-label">RECEIVER</span>
+          </div>
+          <div class="mod-body">
+            <div class="kv"><span class="k">队列信号数</span><span class="v cyan" id="v-queue-size">0</span></div>
+            <div class="kv"><span class="k">累计接收</span><span class="v" id="v-total-received">0</span></div>
+            <div class="kv"><span class="k">信号TTL</span><span class="v" id="v-queue-ttl">300s</span></div>
+          </div>
+        </div>
+
+        <div class="mod mod-wide" id="mod-scheduler">
+          <div class="mod-head">
+            <span class="mod-tag green">调度器</span>
+            <span class="mod-label">SCHEDULER</span>
+            <span style="flex:1"></span>
+            <button class="t-btn-sm green" id="btn-sched-start">启动</button>
+            <button class="t-btn-sm red" id="btn-sched-stop">停止</button>
+          </div>
+          <div class="mod-body">
+            <div class="kv"><span class="k">状态</span><span class="v" id="v-sched-status">已停止</span></div>
+            <div class="kv"><span class="k">执行间隔</span><span class="v" id="v-sched-interval">60s</span></div>
+            <div class="kv"><span class="k">已执行次数</span><span class="v" id="v-sched-runs">0</span></div>
+            <div class="kv"><span class="k">错误次数</span><span class="v" id="v-sched-errors">0</span></div>
+          </div>
+        </div>
+
+        <!-- 运行结果区 -->
+        <div class="result-box" id="result-box">
+          <div class="result-head">最近执行结果</div>
+          <div class="result-body" id="result-body">
+            <span class="dim">等待运行…</span>
+          </div>
+        </div>
+
+        <!-- 交易历史 & 复盘 -->
+        <div class="mod mod-wide" id="mod-trades">
+          <div class="mod-head">
+            <span class="mod-tag green">复盘</span>
+            <span class="mod-label">JOURNAL</span>
+            <span style="flex:1"></span>
+            <button class="t-btn-sm" id="btn-refresh-trades">刷新</button>
+          </div>
+          <div class="mod-body">
+            <div class="stat-row" style="margin-bottom:8px">
+              <div class="stat-box"><div class="stat-val" id="j-total">0</div><div class="stat-key">总交易</div></div>
+              <div class="stat-box"><div class="stat-val green" id="j-winrate">0%</div><div class="stat-key">胜率</div></div>
+              <div class="stat-box"><div class="stat-val" id="j-pnl">0</div><div class="stat-key">总盈亏</div></div>
+              <div class="stat-box"><div class="stat-val" id="j-open">0</div><div class="stat-key">在持</div></div>
+            </div>
+            <div id="trades-body" style="max-height:240px;overflow-y:auto">
+              <div class="empty-hint">点击刷新加载交易历史</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 配置面板（覆盖层） ═══ -->
+  <div class="config-overlay hidden" id="config-overlay">
+    <div class="config-panel">
+      <div class="config-head">
+        <span class="mod-tag yellow">配置</span>
+        <span>系统配置</span>
+        <button class="t-btn-sm" id="btn-config-close">关闭</button>
+      </div>
+      <div class="config-body">
+        <!-- 配置 tabs -->
+        <div class="cfg-tabs">
+          <button class="cfg-tab active" data-cfg="accounts">交易账号</button>
+          <button class="cfg-tab" data-cfg="signals">信号源</button>
+          <button class="cfg-tab" data-cfg="strategy">策略与风控</button>
+          <button class="cfg-tab" data-cfg="webhook">Webhook</button>
+        </div>
+
+        <!-- 账号配置 -->
+        <div class="cfg-panel active" id="cfg-accounts">
+          <div class="cfg-section-head">
+            <span>交易账号</span>
+            <button class="t-btn-sm green" id="cfg-add-account">+ 添加</button>
+          </div>
+          <div class="cfg-table-wrap">
+            <table class="cfg-table" id="cfg-accounts-table">
+              <thead><tr><th>账号ID</th><th>名称</th><th>经纪商</th><th>权重</th><th>API Key</th><th>API Secret</th><th>启用</th><th></th></tr></thead>
+              <tbody id="cfg-accounts-tbody"></tbody>
+            </table>
+          </div>
+          <div class="cfg-empty hidden" id="cfg-accounts-empty">-- 暂无账号 --</div>
+        </div>
+
+        <!-- 信号源配置 -->
+        <div class="cfg-panel" id="cfg-signals">
+          <div class="cfg-section-head">
+            <span>信号源</span>
+            <button class="t-btn-sm green" id="cfg-add-signal">+ 添加信号源</button>
+          </div>
+          <!-- 信号源列表 -->
+          <div id="cfg-signals-list"></div>
+          <div class="cfg-empty hidden" id="cfg-signals-empty">-- 暂无信号源，点击上方 + 添加 --</div>
+          <div class="cfg-form-row" style="margin-top:12px">
+            <label>最小信号强度</label>
+            <input type="number" id="cfg-min-strength" min="0" max="1" step="0.05" value="0.3" />
+          </div>
+        </div>
+
+        <!-- 策略配置 -->
+        <div class="cfg-panel" id="cfg-strategy">
+          <div class="cfg-section-head"><span>策略与风控</span></div>
+          <div class="cfg-form-row">
+            <label>交易标的（每行一个）</label>
+            <textarea id="cfg-symbols" rows="5" placeholder="600519.SH&#10;000858.SZ"></textarea>
+          </div>
+          <div class="cfg-form-row">
+            <label>下单类型</label>
+            <select id="cfg-order-type">
+              <option value="market">市价单</option>
+              <option value="limit">限价单</option>
+            </select>
+          </div>
+          <div class="cfg-form-row">
+            <label>每信号基础下单量（币/张数，如 BTC 用 0.001，ETH 用 0.01）</label>
+            <input type="number" id="cfg-qty-per-signal" min="0" step="0.001" value="0.01" />
+          </div>
+          <div class="cfg-form-row">
+            <label>单标最大仓位占比</label>
+            <input type="number" id="cfg-max-pos" min="0" max="1" step="0.05" value="0.2" />
+          </div>
+          <div class="cfg-form-row">
+            <label>单笔最大下单比例</label>
+            <input type="number" id="cfg-max-order" min="0" max="1" step="0.01" value="0.1" />
+          </div>
+          <div class="cfg-form-row">
+            <label>日最大成交笔数</label>
+            <input type="number" id="cfg-max-daily" min="0" value="100" />
+          </div>
+          <div class="cfg-form-row">
+            <label class="cfg-check">
+              <input type="checkbox" id="cfg-dryrun" />
+              <span>试运行（只打印，不实际下单）</span>
+            </label>
+          </div>
+        </div>
+        <!-- Webhook 配置 -->
+        <div class="cfg-panel" id="cfg-webhook">
+          <div class="cfg-section-head"><span>Webhook 配置</span></div>
+          <div class="cfg-form-row">
+            <label>Webhook 密钥（留空不校验）</label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input type="text" id="cfg-webhook-secret" value="" placeholder="留空则不校验" style="flex:1" />
+              <button class="t-btn-sm green" id="cfg-gen-secret">生成密钥</button>
+            </div>
+          </div>
+          <div class="cfg-form-row">
+            <label>信号 TTL（秒）</label>
+            <input type="number" id="cfg-webhook-ttl" min="10" value="300" style="max-width:120px" />
+          </div>
+          <div class="cfg-form-row">
+            <label>调度器执行间隔（秒）</label>
+            <input type="number" id="cfg-sched-interval" min="5" value="60" style="max-width:120px" />
+          </div>
+          <div class="cfg-section-head" style="margin-top:16px"><span>Webhook 推送示例</span></div>
+          <pre class="webhook-example" style="background:var(--bg);border:1px solid var(--border);padding:8px;font-size:10px;color:var(--muted);overflow-x:auto;white-space:pre-wrap">curl -X POST http://localhost:8888/api/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "secret": "你的密钥",
+    "source": "my_strategy",
+    "signals": [
+      {"symbol": "600519.SH", "direction": "long", "strength": 0.8},
+      {"symbol": "000858.SZ", "direction": "short", "strength": 0.6}
+    ]
+  }'</pre>
+        </div>
+      </div>
+      <div class="config-foot">
+        <button class="t-btn" id="cfg-save">[ 保存配置 ]</button>
+        <button class="t-btn dim" id="cfg-cancel">[ 取消 ]</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 编辑弹窗 ═══ -->
+  <div class="modal-overlay hidden" id="modal">
+    <div class="modal-box">
+      <div class="modal-head" id="modal-title">编辑</div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-foot">
+        <button class="t-btn green" id="modal-ok">[ 确定 ]</button>
+        <button class="t-btn dim" id="modal-cancel">[ 取消 ]</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 信号源编辑器弹窗 ═══ -->
+  <div class="signal-editor-overlay hidden" id="signal-editor">
+    <div class="signal-editor-panel">
+      <div class="se-head">
+        <span class="mod-tag cyan">编辑</span>
+        <span id="se-title">信号源</span>
+        <span style="flex:1"></span>
+        <button class="t-btn-sm" id="se-close">关闭</button>
+      </div>
+      <div class="se-body">
+        <!-- 左侧：参数 -->
+        <div class="se-sidebar">
+          <div class="cfg-form-row">
+            <label>信号源 ID</label>
+            <input type="text" id="se-id" placeholder="my_strategy" />
+          </div>
+          <div class="cfg-form-row">
+            <label>类型</label>
+            <select id="se-type">
+              <option value="inline_code">内联代码</option>
+              <option value="alpha_factor">Alpha 因子库</option>
+            </select>
+          </div>
+          <div class="cfg-form-row">
+            <label>交易币种</label>
+            <input type="text" id="se-symbol" value="BTC" placeholder="BTC" />
+          </div>
+          <div class="cfg-form-row">
+            <label>K线周期</label>
+            <select id="se-interval">
+              <option value="5m">5分钟</option>
+              <option value="15m">15分钟</option>
+              <option value="1h" selected>1小时</option>
+              <option value="4h">4小时</option>
+              <option value="1d">日线</option>
+            </select>
+          </div>
+          <div class="cfg-form-row">
+            <label>权重</label>
+            <input type="number" id="se-weight" value="1.0" min="0" max="1" step="0.1" />
+          </div>
+          <div class="cfg-form-row">
+            <label>z-score 阈值</label>
+            <input type="number" id="se-threshold" value="1.0" min="0" step="0.1" />
+          </div>
+          <div class="cfg-form-row">
+            <label>方向（1=正向 -1=反转）</label>
+            <select id="se-direction">
+              <option value="1">正向 (1)</option>
+              <option value="-1">反转 (-1)</option>
+            </select>
+          </div>
+          <div class="cfg-form-row" id="se-factor-row" style="display:none">
+            <label>因子名称</label>
+            <select id="se-factor-name"><option value="">加载中…</option></select>
+          </div>
+          <div class="cfg-form-row">
+            <label>指定账号（可选）</label>
+            <select id="se-account">
+              <option value="">按权重分配</option>
+            </select>
+          </div>
+        </div>
+        <!-- 右侧：代码编辑器 + 测试结果 -->
+        <div class="se-main">
+          <div class="se-code-head" id="se-code-section">
+            <span>策略代码</span>
+            <span class="se-code-hint">定义 calculate_factor(df) 函数，df 含 open/high/low/close/volume</span>
+          </div>
+          <textarea id="se-code" spellcheck="false" placeholder="import pandas as pd
+import numpy as np
+
+def calculate_factor(df):
+    # df 包含列: open, high, low, close, volume
+    # 返回 pd.Series
+    sma_fast = df['close'].rolling(5).mean()
+    sma_slow = df['close'].rolling(20).mean()
+    return sma_fast - sma_slow"></textarea>
+          <div class="se-actions">
+            <button class="t-btn green" id="se-test">[ 测试运行 ]</button>
+            <span class="se-test-status" id="se-test-status"></span>
+          </div>
+          <div class="se-result" id="se-result">
+            <div class="se-result-placeholder">点击"测试运行"查看最近 20 根 K 线的信号</div>
+          </div>
+        </div>
+      </div>
+      <div class="se-foot">
+        <button class="t-btn green" id="se-save">[ 保存信号源 ]</button>
+        <button class="t-btn dim" id="se-cancel">[ 取消 ]</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

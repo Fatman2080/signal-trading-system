@@ -1,0 +1,9 @@
+PyYAML>=6.0
+Flask>=3.0
+requests>=2.28
+
+# ── 币安合约（仅需 requests，已包含）──
+
+# ── Hyperliquid 永续合约 ──
+hyperliquid-python-sdk>=0.8.0
+eth_account>=0.9.0

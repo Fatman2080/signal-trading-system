@@ -1,0 +1,18 @@
+# 账号配置模板 — 复制为 accounts.yaml 后填入真实密钥
+#
+# 支持的 broker 类型：sim / binance_futures / hyperliquid
+#
+accounts:
+  - id: hype_01
+    name: my-hyperliquid
+    broker: hyperliquid
+    enabled: true
+    weight: 1
+    api_key: "0x你的钱包地址"
+    api_secret: "你的私钥"
+
+  # - id: account_sim
+  #   name: 模拟账号
+  #   broker: sim
+  #   enabled: true
+  #   weight: 0.5

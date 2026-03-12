@@ -1,0 +1,13 @@
+strategy:
+  default_order_type: market
+  max_position_pct: 0.2
+  quantity_per_signal: 0.5
+  symbols:
+  - BTC
+  - SOL
+  - ETH
+risk:
+  dry_run: false
+  max_daily_trades: 100
+  max_single_order_pct: 0.5
+  max_total_exposure_pct: 3

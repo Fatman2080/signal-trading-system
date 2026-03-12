@@ -1,0 +1,20 @@
+# Webhook 外部信号
+#
+# 原理：接收外部系统通过 HTTP POST 推送的信号
+# 适合：对接 TradingView Alert、自建策略服务器等
+#
+# 推送格式：POST /api/webhook
+# {
+#   "symbol": "BTC",
+#   "direction": "LONG",
+#   "strength": 0.8,
+#   "source": "tradingview",
+#   "secret": "你的密钥"
+# }
+#
+# 使用：复制下方配置到 config/signals.yaml 的 sources 列表中
+
+- id: tv_webhook
+  type: webhook
+  weight: 1.0
+  account_id: ""

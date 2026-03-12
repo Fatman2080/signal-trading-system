@@ -1,0 +1,53 @@
+# PA + MACD 组合策略
+#
+# 原理：MACD 金叉/死叉 + 底背离/顶背离 + K线形态（吞没/锤子）
+#      + EMA200 趋势过滤 + 成交量确认，多因子加权评分
+# 输出：方向 + 强度 + 自动计算止损/止盈（基于 ATR + Swing 点位）
+# 适合：趋势跟踪，中低频（15m ~ 4h）
+#
+# 参数说明：
+#   symbol:   交易币种
+#   interval: K线周期（1m/5m/15m/1h/4h/1d）
+#   limit:    K线数量（>=200，用于计算 EMA200）
+#
+# 使用：复制下方配置到 config/signals.yaml 的 sources 列表中
+
+- id: pa_btc_15m
+  type: pa_macd
+  weight: 1.0
+  symbol: BTC
+  interval: 15m
+  limit: 250
+  account_id: ""
+
+- id: pa_eth_15m
+  type: pa_macd
+  weight: 1.0
+  symbol: ETH
+  interval: 15m
+  limit: 250
+  account_id: ""
+
+- id: pa_sol_15m
+  type: pa_macd
+  weight: 1.0
+  symbol: SOL
+  interval: 15m
+  limit: 250
+  account_id: ""
+
+- id: pa_btc_4h
+  type: pa_macd
+  weight: 1.0
+  symbol: BTC
+  interval: 4h
+  limit: 250
+  account_id: ""
+
+- id: pa_eth_1h
+  type: pa_macd
+  weight: 1.0
+  symbol: ETH
+  interval: 1h
+  limit: 250
+  account_id: ""

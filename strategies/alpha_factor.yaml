@@ -1,0 +1,44 @@
+# Alpha 量化因子策略
+#
+# 原理：使用预训练的 Alpha 因子计算 z-score
+#      当 z-score 超过阈值时产生信号（均值回归 / 动量）
+# 输出：方向 + 强度（基于 z-score 幅度）
+# 适合：量化择时，中频
+#
+# 参数说明：
+#   factor_name:  因子名（见 Alpha-X_Top20_Factors/factors.json）
+#   z_threshold:  z-score 触发阈值（默认 1.0，越大越保守）
+#   interval:     K线周期
+#   limit:        K线数量
+#
+# 使用：复制下方配置到 config/signals.yaml 的 sources 列表中
+
+- id: alpha_mom_btc
+  type: alpha_factor
+  weight: 0.8
+  symbol: BTC
+  interval: 1h
+  limit: 200
+  factor_name: alpha_1773090486
+  z_threshold: 1.0
+  account_id: ""
+
+- id: alpha_mom_eth
+  type: alpha_factor
+  weight: 0.8
+  symbol: ETH
+  interval: 1h
+  limit: 200
+  factor_name: alpha_1773090486
+  z_threshold: 1.0
+  account_id: ""
+
+- id: alpha_safe_btc
+  type: alpha_factor
+  weight: 0.5
+  symbol: BTC
+  interval: 4h
+  limit: 200
+  factor_name: alpha_1773090486
+  z_threshold: 1.5
+  account_id: ""

@@ -1,0 +1,24 @@
+# 风控与仓位管理配置 — 复制为 risk.yaml 后按需修改
+#
+
+# ── 运行模式 ──
+dry_run: true                 # true = 模拟运行（只打印日志，不实际下单）
+
+# ── 开平仓规则 ──
+reverse_close: true           # 反向信号时自动平仓（收到空信号 → 先平多仓）
+allow_add_position: false     # 同方向是否允许加仓（false = 已有仓位则跳过）
+
+# ── 止盈止损 ──
+tp_sl:
+  enabled: true               # 开仓后是否自动挂止盈止损条件单
+  default_sl_pct: 0.02        # 默认止损比例（2%），信号自带 SL 时优先用信号的
+  default_tp_pct: 0.03        # 默认止盈比例（3%），信号自带 TP 时优先用信号的
+  use_signal_levels: true     # 优先使用信号源计算的 SL/TP（如 PA 策略的 ATR 止损）
+
+# ── 仓位限制 ──
+max_single_order_pct: 0.5    # 单笔订单占账户权益的上限（50%）
+max_position_pct: 0.2         # 单币种仓位占账户权益的上限（20%）
+max_total_exposure_pct: 3.0   # 总敞口占账户权益的上限（300%）
+
+# ── 交易频率 ──
+max_daily_trades: 100         # 每日最大交易笔数

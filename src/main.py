@@ -21,11 +21,12 @@ def run_cycle(
     accounts_cfg = load_yaml(config_dir / "accounts.yaml")
     signals_cfg = load_yaml(config_dir / "signals.yaml")
     strategy_cfg = load_yaml(config_dir / "strategy.yaml")
+    risk_cfg = load_yaml(config_dir / "risk.yaml")
 
     # 1. 多账号
     accounts_list = accounts_cfg.get("accounts", [])
     account_manager = AccountManager(accounts_list)
-    dry_run = strategy_cfg.get("risk", {}).get("dry_run", False)
+    dry_run = risk_cfg.get("dry_run", False)
     executor = MultiAccountExecutor(account_manager, dry_run=dry_run)
 
     # 2. 信号源（根据配置 type 字段自动加载对应信号源类）
@@ -79,6 +80,11 @@ def run_cycle(
         quantity_per_signal=qty,
     )
 
+    # 4b. 补充止盈止损默认值
+    tp_sl_cfg = risk_cfg.get("tp_sl", {})
+    if tp_sl_cfg.get("enabled", True):
+        _apply_default_tp_sl(pending_orders, tp_sl_cfg)
+
     if not pending_orders:
         print("[主流程] 本轮无待执行订单")
         return []
@@ -91,13 +97,14 @@ def run_cycle(
     _fill_market_prices(pending_orders, prices)
 
     # 6. 风控过滤（持仓感知）
-    risk_params = strategy_cfg.get("risk", {})
     validator = OrderValidator(
         allowed_symbols=strategy_params.get("symbols") or None,
-        max_single_order_pct=risk_params.get("max_single_order_pct"),
-        max_position_pct=strategy_params.get("max_position_pct"),
-        max_total_exposure_pct=risk_params.get("max_total_exposure_pct"),
-        max_daily_trades=risk_params.get("max_daily_trades"),
+        max_single_order_pct=risk_cfg.get("max_single_order_pct"),
+        max_position_pct=risk_cfg.get("max_position_pct"),
+        max_total_exposure_pct=risk_cfg.get("max_total_exposure_pct"),
+        max_daily_trades=risk_cfg.get("max_daily_trades"),
+        reverse_close=risk_cfg.get("reverse_close", True),
+        allow_add_position=risk_cfg.get("allow_add_position", False),
     )
 
     close_orders, open_orders = validator.filter_orders(
@@ -227,6 +234,29 @@ def _fill_market_prices(orders: list[PendingOrder], prices: dict[str, float]) ->
         px = prices.get(order.symbol.upper(), 0)
         if px > 0:
             order.price = px
+
+
+def _apply_default_tp_sl(orders: list[PendingOrder], tp_sl_cfg: dict) -> None:
+    """为没有止盈止损的订单填充默认值（基于配置的百分比）。"""
+    use_signal = tp_sl_cfg.get("use_signal_levels", True)
+    default_sl_pct = tp_sl_cfg.get("default_sl_pct", 0)
+    default_tp_pct = tp_sl_cfg.get("default_tp_pct", 0)
+
+    for o in orders:
+        if use_signal and o.stop_loss and o.take_profit:
+            continue
+
+        entry = o.price or o.extra.get("entry_price", 0)
+        if not entry or entry <= 0:
+            continue
+
+        is_long = o.side.lower() in ("buy", "long")
+
+        if not o.stop_loss and default_sl_pct > 0:
+            o.stop_loss = entry * (1 - default_sl_pct) if is_long else entry * (1 + default_sl_pct)
+
+        if not o.take_profit and default_tp_pct > 0:
+            o.take_profit = entry * (1 + default_tp_pct) if is_long else entry * (1 - default_tp_pct)
 
 
 def main() -> None:

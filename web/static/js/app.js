@@ -7,8 +7,8 @@ const state = {
   accounts: [],
   signals: [],
   aggregator: { min_strength: 0.3 },
-  strategy: { symbols: [], default_order_type: 'market', max_position_pct: 0.2, quantity_per_signal: 0.01 },
-  risk: { max_single_order_pct: 0.1, max_daily_trades: 100, dry_run: false },
+  strategy: { symbols: [], default_order_type: 'market', quantity_per_signal: 0.01 },
+  risk: { dry_run: false, reverse_close: true, allow_add_position: false, tp_sl: { enabled: true, default_sl_pct: 0.02, default_tp_pct: 0.03, use_signal_levels: true }, max_single_order_pct: 0.5, max_position_pct: 0.2, max_total_exposure_pct: 3.0, max_daily_trades: 100 },
   webhook: { secret: '', ttl: 300 },
   scheduler: { running: false, interval: 60, total_runs: 0, total_errors: 0 },
   queue: { queue_size: 0, total_received: 0, ttl: 300 },
@@ -123,7 +123,7 @@ function updateDash() {
   // 策略
   const orderTypeMap = { limit: '限价', market: '市价' };
   $('v-order-type').textContent = orderTypeMap[state.strategy.default_order_type] || state.strategy.default_order_type;
-  $('v-max-pos').textContent = state.strategy.max_position_pct ?? 0.2;
+  $('v-max-pos').textContent = state.risk.max_position_pct ?? 0.2;
   $('v-sym-count').textContent = symCount;
   const pSyms = $('prophet-symbols');
   if (symCount) {
@@ -392,8 +392,8 @@ function fillCfgStrategy() {
   $('cfg-symbols').value = (state.strategy.symbols || []).join('\n');
   $('cfg-order-type').value = state.strategy.default_order_type || 'market';
   $('cfg-qty-per-signal').value = state.strategy.quantity_per_signal ?? 0.01;
-  $('cfg-max-pos').value = state.strategy.max_position_pct ?? 0.2;
-  $('cfg-max-order').value = state.risk.max_single_order_pct ?? 0.1;
+  $('cfg-max-pos').value = state.risk.max_position_pct ?? 0.2;
+  $('cfg-max-order').value = state.risk.max_single_order_pct ?? 0.5;
   $('cfg-max-daily').value = state.risk.max_daily_trades ?? 100;
   $('cfg-dryrun').checked = !!state.risk.dry_run;
 }
@@ -416,8 +416,8 @@ function syncCfgToState() {
   state.strategy.symbols = raw ? raw.split('\n').map(s => s.trim()).filter(Boolean) : [];
   state.strategy.default_order_type = $('cfg-order-type').value;
   state.strategy.quantity_per_signal = parseFloat($('cfg-qty-per-signal').value) || 0.01;
-  state.strategy.max_position_pct = parseFloat($('cfg-max-pos').value) || 0.2;
-  state.risk.max_single_order_pct = parseFloat($('cfg-max-order').value) || 0.1;
+  state.risk.max_position_pct = parseFloat($('cfg-max-pos').value) || 0.2;
+  state.risk.max_single_order_pct = parseFloat($('cfg-max-order').value) || 0.5;
   state.risk.max_daily_trades = parseInt($('cfg-max-daily').value) || 100;
   state.risk.dry_run = $('cfg-dryrun').checked;
   state.webhook.secret = $('cfg-webhook-secret').value;
@@ -967,8 +967,8 @@ async function boot() {
     state.accounts   = data.accounts   || [];
     state.signals    = data.signals    || [];
     state.aggregator = data.aggregator || { min_strength: 0.3 };
-    state.strategy   = data.strategy   || { symbols: [], default_order_type: 'market', max_position_pct: 0.2, quantity_per_signal: 0.01 };
-    state.risk       = data.risk       || { max_single_order_pct: 0.1, max_daily_trades: 100, dry_run: false };
+    state.strategy   = data.strategy   || { symbols: [], default_order_type: 'market', quantity_per_signal: 0.01 };
+    state.risk       = data.risk       || { dry_run: false, max_single_order_pct: 0.5, max_position_pct: 0.2, max_total_exposure_pct: 3.0, max_daily_trades: 100 };
     state.webhook    = data.webhook    || { secret: '', ttl: 300, scheduler_interval: 60 };
     state.scheduler.interval = state.webhook.scheduler_interval || 60;
 

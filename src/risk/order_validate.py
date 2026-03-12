@@ -58,12 +58,16 @@ class OrderValidator:
         max_position_pct: Optional[float] = None,
         max_total_exposure_pct: Optional[float] = None,
         max_daily_trades: Optional[int] = None,
+        reverse_close: bool = True,
+        allow_add_position: bool = False,
     ):
         self.allowed_symbols = {s.upper() for s in (allowed_symbols or [])}
         self.max_single_order_pct = max_single_order_pct
         self.max_position_pct = max_position_pct or 0.5
         self.max_total_exposure_pct = max_total_exposure_pct or 3.0
         self.max_daily_trades = max_daily_trades
+        self.reverse_close = reverse_close
+        self.allow_add_position = allow_add_position
 
     @staticmethod
     def _order_side_to_pos_side(side: str) -> str:
@@ -119,13 +123,14 @@ class OrderValidator:
 
             _side_cn = {"LONG": "多", "SHORT": "空"}
 
-            # ── 规则1: 同方向已有仓位 → 跳过 ──
+            # ── 规则1: 同方向已有仓位 ──
             if existing and existing.side == order_pos_side:
-                print(f"[风控] 跳过 {o.symbol} {o.side}: 已有{_side_cn.get(existing.side, existing.side)}仓 {existing.size}，不重复开仓")
-                continue
+                if not self.allow_add_position:
+                    print(f"[风控] 跳过 {o.symbol} {o.side}: 已有{_side_cn.get(existing.side, existing.side)}仓 {existing.size}，不重复开仓")
+                    continue
 
             # ── 规则2: 反方向已有仓位 → 生成平仓单 ──
-            if existing and existing.side != order_pos_side:
+            if existing and existing.side != order_pos_side and self.reverse_close:
                 close_side = self._opposite_side(
                     "buy" if existing.side == "LONG" else "sell"
                 )

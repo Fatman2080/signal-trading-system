@@ -34,13 +34,14 @@ def get_full_config():
     accounts = load_yaml(config_dir / "accounts.yaml")
     signals = load_yaml(config_dir / "signals.yaml")
     strategy = load_yaml(config_dir / "strategy.yaml")
+    risk = load_yaml(config_dir / "risk.yaml")
     webhook_cfg = load_yaml(config_dir / "webhook.yaml")
     return {
         "accounts": accounts.get("accounts", []),
         "signals": signals.get("sources", []),
         "aggregator": signals.get("aggregator", {}),
         "strategy": strategy.get("strategy", {}),
-        "risk": strategy.get("risk", {}),
+        "risk": risk,
         "webhook": {
             "secret": webhook_cfg.get("secret", ""),
             "ttl": webhook_cfg.get("ttl", 300),
@@ -76,8 +77,9 @@ def api_save_config():
         })
         save_yaml(config_dir / "strategy.yaml", {
             "strategy": data.get("strategy", {}),
-            "risk": data.get("risk", {}),
         })
+        if "risk" in data:
+            save_yaml(config_dir / "risk.yaml", data["risk"])
         if "webhook" in data:
             existing_wh = load_yaml(config_dir / "webhook.yaml")
             existing_wh.update(data["webhook"])

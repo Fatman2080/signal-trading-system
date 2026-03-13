@@ -234,7 +234,7 @@ function renderPositions() {
       html += '<div class="empty-hint" style="padding:4px 0">无持仓</div>';
     } else {
       html += `<table class="pos-table"><thead><tr>
-        <th>标的</th><th>方向</th><th>数量</th><th>开仓价</th><th>未实现盈亏</th><th>杠杆</th>
+        <th>标的</th><th>方向</th><th>数量</th><th>开仓价</th><th>止损</th><th>止盈</th><th>盈亏</th><th>杠杆</th>
       </tr></thead><tbody>`;
       for (const p of positions) {
         const dirClass = p.side === 'LONG' ? 'pos-long' : 'pos-short';
@@ -242,11 +242,17 @@ function renderPositions() {
         const pnl = Number(p.unrealized_pnl || 0);
         const pnlClass = pnl >= 0 ? 'pos-pnl-plus' : 'pos-pnl-minus';
         const pnlStr = (pnl >= 0 ? '+' : '') + pnl.toFixed(2);
+        const slVal = p.stop_loss ? Number(p.stop_loss).toFixed(2) : '--';
+        const tpVal = p.take_profit ? Number(p.take_profit).toFixed(2) : '--';
+        const slClass = p.stop_loss ? 'color:var(--red)' : 'color:var(--dim)';
+        const tpClass = p.take_profit ? 'color:var(--green)' : 'color:var(--dim)';
         html += `<tr>
           <td style="color:var(--bright)">${esc(p.symbol)}</td>
           <td class="${dirClass}">${dirText}</td>
           <td>${p.size}</td>
           <td>${Number(p.entry_price || 0).toFixed(2)}</td>
+          <td style="${slClass}">${slVal}</td>
+          <td style="${tpClass}">${tpVal}</td>
           <td class="${pnlClass}">${pnlStr}</td>
           <td>${p.leverage || '--'}x</td>
         </tr>`;

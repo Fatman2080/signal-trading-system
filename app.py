@@ -225,7 +225,7 @@ def api_queue_peek():
 # ─── 持仓 & 余额查询 ─────────────────────────────
 @app.route("/api/positions", methods=["GET"])
 def api_positions():
-    """查询所有已连接账号的持仓和余额。"""
+    """查询所有已连接账号的持仓、余额和挂单（含 TP/SL 条件单）。"""
     try:
         config_dir = get_config_dir()
         accounts_cfg = load_yaml(config_dir / "accounts.yaml")
@@ -244,17 +244,16 @@ def api_positions():
                 "broker": cfg.broker,
                 "positions": [],
                 "balance": {},
+                "open_orders": [],
                 "error": None,
             }
 
-            # 查询余额
             if hasattr(client, "get_balance"):
                 try:
                     account_data["balance"] = client.get_balance()
                 except Exception as e:
                     account_data["error"] = f"余额查询失败: {e}"
 
-            # 查询持仓
             if hasattr(client, "get_positions"):
                 try:
                     account_data["positions"] = client.get_positions()
@@ -262,11 +261,63 @@ def api_positions():
                     err = f"持仓查询失败: {e}"
                     account_data["error"] = (account_data["error"] or "") + " " + err
 
+            if hasattr(client, "get_open_orders"):
+                try:
+                    account_data["open_orders"] = client.get_open_orders()
+                except Exception as e:
+                    pass
+
+            _attach_tp_sl_to_positions(account_data)
             result.append(account_data)
+
+        # 持仓同步：对比交易所实际持仓与日志，自动补录已消失的仓位
+        _sync_positions_from_result(result)
 
         return jsonify({"accounts": result})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+def _sync_positions_from_result(accounts_result: list[dict]) -> None:
+    """从已查询的持仓结果触发日志同步。"""
+    try:
+        from src.journal.trade_log import sync_positions
+        exchange_positions = []
+        for acc in accounts_result:
+            for p in acc.get("positions", []):
+                exchange_positions.append({
+                    "symbol": p.get("symbol", ""),
+                    "side": p.get("side", ""),
+                    "account_id": acc.get("id", ""),
+                    "price": float(p.get("entry_price", 0)),
+                })
+        sync_positions(exchange_positions)
+    except Exception:
+        pass
+
+
+def _attach_tp_sl_to_positions(account_data: dict) -> None:
+    """将挂单中的 TP/SL 条件单匹配到对应持仓上。"""
+    positions = account_data.get("positions", [])
+    orders = account_data.get("open_orders", [])
+    if not positions or not orders:
+        return
+
+    for pos in positions:
+        coin = pos.get("symbol", "").upper()
+        pos.setdefault("stop_loss", None)
+        pos.setdefault("take_profit", None)
+        for o in orders:
+            if o.get("coin", "").upper() != coin:
+                continue
+            if not o.get("reduce_only"):
+                continue
+            tpsl = o.get("tpsl", "")
+            trigger = o.get("trigger_price") or o.get("price", 0)
+            if tpsl == "sl" and trigger:
+                pos["stop_loss"] = trigger
+            elif tpsl == "tp" and trigger:
+                pos["take_profit"] = trigger
 
 
 # ─── 信号源测试 API ─────────────────────────────

@@ -1,21 +1,21 @@
 sources:
 - account_id: hype_01
   id: pa_btc
-  interval: 15m
+  interval: 1h
   limit: 250
   symbol: BTC
   type: pa_macd
   weight: 1
 - account_id: hype_01
   id: pa_eth
-  interval: 15m
+  interval: 1h
   limit: 250
   symbol: ETH
   type: pa_macd
   weight: 1
 - account_id: hype_01
   id: pa_sol
-  interval: 15m
+  interval: 1h
   limit: 250
   symbol: SOL
   type: pa_macd

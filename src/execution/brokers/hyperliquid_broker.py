@@ -277,6 +277,47 @@ class HyperliquidBroker(BrokerBase):
             })
         return positions
 
+    def get_open_orders(self) -> list[dict]:
+        """查询所有挂单（含 TP/SL 条件单），返回统一格式列表。"""
+        orders: list[dict] = []
+        try:
+            front_orders = self._info.frontend_open_orders(self._address)
+            for o in front_orders:
+                coin = o.get("coin", "")
+                side_raw = o.get("side", "")
+                is_buy = side_raw.upper() == "B"
+                sz = float(o.get("sz", 0))
+                px = float(o.get("limitPx", 0))
+                oid = str(o.get("oid", ""))
+                order_type = o.get("orderType", "")
+                reduce_only = o.get("reduceOnly", False)
+
+                tpsl = ""
+                trigger_px = 0.0
+                if "triggerPx" in o and o["triggerPx"] != "0":
+                    trigger_px = float(o["triggerPx"])
+                if order_type == "Stop Market" or order_type == "Stop Limit":
+                    tpsl = "sl"
+                elif order_type == "Take Profit Market" or order_type == "Take Profit Limit":
+                    tpsl = "tp"
+                if not tpsl and "tpsl" in o:
+                    tpsl = o["tpsl"]
+
+                orders.append({
+                    "oid": oid,
+                    "coin": coin,
+                    "side": "buy" if is_buy else "sell",
+                    "size": sz,
+                    "price": px,
+                    "trigger_price": trigger_px,
+                    "type": order_type,
+                    "tpsl": tpsl,
+                    "reduce_only": reduce_only,
+                })
+        except Exception as e:
+            print(f"[Hyperliquid] 查询挂单失败: {e}")
+        return orders
+
     def get_price(self, symbol: str) -> float:
         coin = self._normalize_coin(symbol)
         mids = self._info.all_mids()

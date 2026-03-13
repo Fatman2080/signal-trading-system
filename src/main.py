@@ -29,6 +29,9 @@ def run_cycle(
     dry_run = risk_cfg.get("dry_run", False)
     executor = MultiAccountExecutor(account_manager, dry_run=dry_run)
 
+    # 1b. 持仓同步：对比交易所实际持仓，自动补录已消失的仓位
+    _sync_exchange_positions(account_manager)
+
     # 2. 信号源（根据配置 type 字段自动加载对应信号源类）
     sources_cfg = signals_cfg.get("sources", [])
     source_weights = {s["id"]: float(s.get("weight", 0.5)) for s in sources_cfg}
@@ -257,6 +260,32 @@ def _apply_default_tp_sl(orders: list[PendingOrder], tp_sl_cfg: dict) -> None:
 
         if not o.take_profit and default_tp_pct > 0:
             o.take_profit = entry * (1 + default_tp_pct) if is_long else entry * (1 - default_tp_pct)
+
+
+def _sync_exchange_positions(account_manager: AccountManager) -> None:
+    """对比交易所持仓与日志，自动补录已消失的仓位为平仓。"""
+    from src.journal.trade_log import sync_positions, load_open_trades
+
+    open_trades = load_open_trades()
+    if not open_trades:
+        return
+
+    exchange_positions: list[dict] = []
+    for cfg, client in account_manager.get_all_clients():
+        if not hasattr(client, "get_positions"):
+            continue
+        try:
+            for p in client.get_positions():
+                exchange_positions.append({
+                    "symbol": p.get("symbol", ""),
+                    "side": p.get("side", ""),
+                    "account_id": cfg.id,
+                    "price": float(p.get("entry_price", 0)),
+                })
+        except Exception:
+            pass
+
+    sync_positions(exchange_positions)
 
 
 def main() -> None:

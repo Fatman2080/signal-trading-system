@@ -34,7 +34,6 @@ class SignalAggregator:
             if strength < self.min_strength:
                 continue
 
-            # 若任一来信号指定了 account_id，聚合结果继承（固定账号执行）
             account_id: Optional[str] = None
             for s in sym_signals:
                 if s.account_id is not None:
@@ -46,6 +45,12 @@ class SignalAggregator:
                 if direction_val > 0
                 else (SignalDirection.SHORT if direction_val < 0 else SignalDirection.NEUTRAL)
             )
+
+            # 继承最强信号的 extra（含 SL/TP/reasons 等）
+            best = max(sym_signals, key=lambda s: s.strength)
+            extra = dict(best.extra or {})
+            extra["aggregated_sources"] = [s.source for s in sym_signals]
+
             results.append(
                 TradingSignal(
                     symbol=symbol,
@@ -53,6 +58,7 @@ class SignalAggregator:
                     strength=min(1.0, strength),
                     source="aggregated",
                     account_id=account_id,
+                    extra=extra,
                 )
             )
         return results
